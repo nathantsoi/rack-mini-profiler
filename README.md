@@ -95,7 +95,7 @@ Flamegraph generation is supported in MRI 2.0 and 2.1 only.
 
 ## Access control in production
 
-rack-mini-profiler is designed with production profiling in mind. To enable that just run `Rack::MiniProfiler.authorize_request` once you know a request is allowed to profile.
+rack-mini-profiler is designed with production profiling in mind. In environments other than development and test, rack-mini-profiler is set to whitelist mode. Therefore, to enable profiling, run `Rack::MiniProfiler.authorize_request` once you know a request is allowed to profile.
 
 ```ruby
 # A hook in your ApplicationController
@@ -105,6 +105,38 @@ def authorize
   end
 end
 ```
+
+For example, profiling can be enabled by setting the `__profilin` cookie. For environments in whitelist mode, you'll need to authorize the request by checking this cookie. Checking for a cookie is preferred to a url parameter (ie. `pp=`) in cases where it may not be possible or desirable to modify each request to include the url parameter. ie. clientside apps.
+
+```ruby
+# A hook in your ApplicationController
+def authorize
+  return unless defined? Rack::MiniProfiler
+  if cookies[Rack::MiniProfiler::ClientSettings::COOKIE_NAME].present?
+    Rack::MiniProfiler.authorize_request
+  else
+    Rack::MiniProfiler.deauthorize_request
+  end
+end
+```
+
+Then to set the cookie, run in your javascript console (full backtraces, see cookie options below):
+```javascript
+document.cookie='__profilin='+escape('p=t,bt=1')+'; path=/';
+```
+
+When you're done, disable profiling by deleting the cookie:
+```javascript
+document.cookie='__profilin=; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/;'
+```
+
+
+## Cookie options
+
+* `p=t` enable profiling
+* `dp=t` explicitly disable profiling
+* `bt=1` full backtrace
+* `bt=2` no backtrace
 
 ## Configuration
 
@@ -220,7 +252,6 @@ the above recipe causes problems.
 ## Special query strings
 
 If you include the query string `pp=help` at the end of your request you will see the various options available. You can use these options to extend or contract the amount of diagnostics rack-mini-profiler gathers.
-
 
 ## Rails 2.X support
 
